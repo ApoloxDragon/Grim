@@ -12,6 +12,8 @@ import lombok.Setter;
 @Getter
 public class TeleportData {
     Vector3d location;
+    private final float yaw;
+    private final float pitch;
     Vector3d velocity;
     RelativeFlag flags;
     @Setter
@@ -83,14 +85,22 @@ public class TeleportData {
     }
 
     public boolean isRelativeX() {
-        return flags.has(RelativeFlag.X.getMask());
+        return flags.has(RelativeFlag.X);
     }
 
     public boolean isRelativeY() {
-        return flags.has(RelativeFlag.Y.getMask());
+        return flags.has(RelativeFlag.Y);
     }
 
     public boolean isRelativeZ() {
-        return flags.has(RelativeFlag.Z.getMask());
+        return flags.has(RelativeFlag.Z);
+    }
+
+    public boolean isRelativeYaw() {
+        return flags.has(RelativeFlag.YAW);
+    }
+
+    public boolean isRelativePitch() {
+        return flags.has(RelativeFlag.PITCH);
     }
 }

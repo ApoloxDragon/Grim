@@ -208,7 +208,7 @@ public class SetbackTeleportUtil extends Check implements PostPredictionCheck {
             blockOffsets = true;
         }
 
-        SetBackData data = new SetBackData(new TeleportData(position, new Vector3d(), new RelativeFlag(0b11000), player.lastTransactionSent.get(), 0), player.xRot, player.yRot, clientVel, player.inVehicle(), false);
+        SetBackData data = new SetBackData(new TeleportData(position, 0, 0, new Vector3d(), new RelativeFlag(0b11000), player.lastTransactionSent.get(), 0), player.xRot, player.yRot, clientVel, player.inVehicle(), false);
         sendSetback(data);
     }
 
@@ -260,7 +260,7 @@ public class SetbackTeleportUtil extends Check implements PostPredictionCheck {
             data.getTeleportData().setTransaction(player.lastTransactionSent.get());
 
             // Use provided transaction ID to make sure it can never desync, although there's no reason to do this
-            addSentTeleport(new Location(null, position.getX(), y, position.getZ(), player.xRot % 360, player.yRot % 360), new Vector3d(), data.getTeleportData().getTransaction(), new RelativeFlag(0b11000), false, teleportId);
+            addSentTeleport(new Location(null, position.getX(), y, position.getZ()), new Vector3d(), data.getTeleportData().getTransaction(), new RelativeFlag(0b11000), false, teleportId);
             // This must be done after setting the sent teleport, otherwise we lose velocity data
             requiredSetBack = data;
             // Send after tracking to fix race condition
@@ -281,7 +281,7 @@ public class SetbackTeleportUtil extends Check implements PostPredictionCheck {
      * @param z - Player Z position
      * @return - Whether the player has completed a teleport by being at this position
      */
-    public TeleportAcceptData checkTeleportQueue(double x, double y, double z) {
+    public TeleportAcceptData checkTeleportQueue(double x, double y, double z, float yaw, float pitch) {
         // Support teleports without teleport confirmations
         // If the player is in a vehicle when teleported, they will exit their vehicle
         TeleportAcceptData teleportData = new TeleportAcceptData();
@@ -296,8 +296,11 @@ public class SetbackTeleportUtil extends Check implements PostPredictionCheck {
             Vector3d clamped = VectorUtils.clampVector(new Vector3d(trueTeleportX, trueTeleportY, trueTeleportZ));
             double threshold = teleportPos.isRelativePos() ? player.getMovementThreshold() : 0;
             boolean closeEnoughY = Math.abs(clamped.getY() - y) <= 1e-7 + threshold; // 1.7 rounding
+            // rotations are updated every frame, we can't accurately check them if they're relative
+            boolean correctRotations = (yaw == teleportPos.getYaw() || teleportPos.isRelativeYaw())
+                    || (pitch == teleportPos.getPitch() || teleportPos.isRelativePitch());
 
-            if (player.lastTransactionReceived.get() == teleportPos.getTransaction() && Math.abs(clamped.getX() - x) <= threshold && closeEnoughY && Math.abs(clamped.getZ() - z) <= threshold) {
+            if (player.lastTransactionReceived.get() == teleportPos.getTransaction() && Math.abs(clamped.getX() - x) <= threshold && closeEnoughY && Math.abs(clamped.getZ() - z) <= threshold && correctRotations) {
                 pendingTeleports.poll();
                 hasAcceptedSpawnTeleport = true;
                 blockOffsets = false;
@@ -397,10 +400,18 @@ public class SetbackTeleportUtil extends Check implements PostPredictionCheck {
     }
 
     public void addSentTeleport(Location position, Vector3d velocity, int transaction, RelativeFlag flags, boolean plugin, int teleportId) {
-        TeleportData data = new TeleportData(new Vector3d(position.getX(), position.getY(), position.getZ()), velocity, flags, transaction, teleportId);
-        pendingTeleports.add(data);
-
         Vector3d safePosition = new Vector3d(position.getX(), position.getY(), position.getZ());
+
+        TeleportData data = new TeleportData(
+                safePosition,
+                position.getYaw(),
+                position.getPitch(),
+                velocity,
+                flags,
+                transaction,
+                teleportId
+        );
+        pendingTeleports.add(data);
 
         // We must convert relative teleports to avoid them becoming client controlled in the case of setback
         if (flags.has(RelativeFlag.X)) {
@@ -415,7 +426,7 @@ public class SetbackTeleportUtil extends Check implements PostPredictionCheck {
             safePosition = safePosition.withZ(safePosition.getZ() + lastKnownGoodPosition.pos.getZ());
         }
 
-        data = new TeleportData(safePosition, velocity, new RelativeFlag(0b11000), transaction, teleportId);
+        data = new TeleportData(safePosition, 0, 0, velocity, new RelativeFlag(0b11000), transaction, teleportId);
         requiredSetBack = new SetBackData(data, player.xRot, player.yRot, null, false, plugin);
 
         this.lastKnownGoodPosition = new SetbackPosWithVector(safePosition, new Vector3dm());
