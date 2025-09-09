@@ -298,7 +298,7 @@ public class SetbackTeleportUtil extends Check implements PostPredictionCheck {
             boolean closeEnoughY = Math.abs(clamped.getY() - y) <= 1e-7 + threshold; // 1.7 rounding
             // rotations are updated every frame, we can't accurately check them if they're relative
             boolean correctRotations = (yaw == teleportPos.getYaw() || teleportPos.isRelativeYaw())
-                    || (pitch == teleportPos.getPitch() || teleportPos.isRelativePitch());
+                    && (pitch == teleportPos.getPitch() || teleportPos.isRelativePitch());
 
             if (player.lastTransactionReceived.get() == teleportPos.getTransaction() && Math.abs(clamped.getX() - x) <= threshold && closeEnoughY && Math.abs(clamped.getZ() - z) <= threshold && correctRotations) {
                 pendingTeleports.poll();
